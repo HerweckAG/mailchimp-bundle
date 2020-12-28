@@ -11,23 +11,30 @@ use Welp\MailchimpBundle\Exception\MailchimpException;
  */
 class ListRepository
 {
+    public const STATUS_SUBSCRIBED = 'subscribed';
+    public const STATUS_UNSUBSCRIBED = 'unsubscribed';
+    public const STATUS_CLEANED = 'cleaned';
+    public const STATUS_PENDING = 'pending';
+    public const STATUS_TRANSACTIONAL = 'transactional';
+    public const STATUS_ARCHIVED = 'archived';
+
     /**
      * Numbers of subscribers per batch
      * @var int
      */
-    const SUBSCRIBER_BATCH_SIZE = 300;
+    protected const SUBSCRIBER_BATCH_SIZE = 300;
 
     /**
      * MailChimp count limit for result set
      * @var int
      */
-    const MAILCHIMP_DEFAULT_COUNT_LIMIT = 10;
+    protected const MAILCHIMP_DEFAULT_COUNT_LIMIT = 10;
 
     /**
      * MailChimp Object
      * @var MailChimp
      */
-    protected $mailchimp;
+    protected MailChimp $mailchimp;
 
     /**
      * @param MailChimp $mailchimp
@@ -41,7 +48,7 @@ class ListRepository
      * Get MailChimp Object to do custom actions
      * @return MailChimp https://github.com/drewm/mailchimp-api
      */
-    public function getMailChimp()
+    public function getMailChimp(): Mailchimp
     {
         return $this->mailchimp;
     }
@@ -50,8 +57,9 @@ class ListRepository
      * Find MailChimp List by list Id
      * @param string $listId
      * @return array list http://developer.mailchimp.com/documentation/mailchimp/reference/lists/#read-get_lists_list_id
+     * @throws MailchimpException
      */
-    public function findById($listId)
+    public function findById(string $listId): array
     {
         $listData = $this->mailchimp->get("lists/$listId");
 
@@ -62,15 +70,36 @@ class ListRepository
     }
 
     /**
+     * @param string $name
+     * @return array
+     * @throws MailchimpException
+     */
+    public function findByName(string $name): array
+    {
+        $lists = $this->mailchimp->get('lists/');
+        if (!$this->mailchimp->success()) {
+            $this->throwMailchimpError($this->mailchimp->getLastResponse());
+        }
+
+        return array_filter(
+            $lists['lists'],
+            static function ($list) use ($name){
+                return $list['name'] === $name;
+            }
+        );
+    }
+
+    /**
      * core function to put (add or edit) subscriber to a list
      * @param string $listId
      * @param Subscriber $subscriber
      * @param string $status
      * @return array
+     * @throws MailchimpException
      */
-    protected function putSubscriberInList($listId, Subscriber $subscriber, $status)
+    protected function putSubscriberInList(string $listId, Subscriber $subscriber, string $status): array
     {
-        if (!in_array($status, ['subscribed', 'unsubscribed', 'cleaned', 'pending', 'transactional'])) {
+        if (!in_array($status, [self::STATUS_SUBSCRIBED, self::STATUS_UNSUBSCRIBED, self::STATUS_CLEANED, self::STATUS_PENDING, self::STATUS_TRANSACTIONAL])) {
             throw new \RuntimeException('$status must be one of these values: subscribed, unsubscribed, cleaned, pending, transactional');
         }
         $subscriberHash = MailChimp::subscriberHash($subscriber->getEmail());
@@ -93,50 +122,59 @@ class ListRepository
      * @param string $listId
      * @param Subscriber $subscriber
      * @return array
+     * @throws MailchimpException
      */
-    public function subscribe($listId, Subscriber $subscriber)
+    public function subscribe(string $listId, Subscriber $subscriber): array
     {
-        return $this->putSubscriberInList($listId, $subscriber, 'subscribed');
+        return $this->putSubscriberInList($listId, $subscriber, self::STATUS_SUBSCRIBED);
     }
 
     /**
      * Subscribe a Subscriber to a list
      * @param string $listId
      * @param Subscriber $subscriber
+     * @return array
+     * @throws MailchimpException
      */
-    public function unsubscribe($listId, Subscriber $subscriber)
+    public function unsubscribe(string $listId, Subscriber $subscriber): array
     {
-        return $this->putSubscriberInList($listId, $subscriber, 'unsubscribed');
+        return $this->putSubscriberInList($listId, $subscriber, self::STATUS_UNSUBSCRIBED);
     }
 
     /**
      * Clean a Subscriber to a list
      * @param string $listId
      * @param Subscriber $subscriber
+     * @return array
+     * @throws MailchimpException
      */
-    public function clean($listId, Subscriber $subscriber)
+    public function clean(string $listId, Subscriber $subscriber): array
     {
-        return $this->putSubscriberInList($listId, $subscriber, 'cleaned');
+        return $this->putSubscriberInList($listId, $subscriber, self::STATUS_CLEANED);
     }
 
     /**
      * Add/set pending a Subscriber to a list
      * @param string $listId
      * @param Subscriber $subscriber
+     * @return array
+     * @throws MailchimpException
      */
-    public function pending($listId, Subscriber $subscriber)
+    public function pending(string $listId, Subscriber $subscriber): array
     {
-        return $this->putSubscriberInList($listId, $subscriber, 'pending');
+        return $this->putSubscriberInList($listId, $subscriber, self::STATUS_PENDING);
     }
 
     /**
      * set transactional a Subscriber to a list
      * @param string $listId
      * @param Subscriber $subscriber
+     * @return array
+     * @throws MailchimpException
      */
-    public function transactional($listId, Subscriber $subscriber)
+    public function transactional(string $listId, Subscriber $subscriber): array
     {
-        return $this->putSubscriberInList($listId, $subscriber, 'transactional');
+        return $this->putSubscriberInList($listId, $subscriber, self::STATUS_TRANSACTIONAL);
     }
 
     /**
@@ -144,8 +182,10 @@ class ListRepository
      * http://developer.mailchimp.com/documentation/mailchimp/reference/lists/members/#edit-patch_lists_list_id_members_subscriber_hash
      * @param string $listId
      * @param Subscriber $subscriber
+     * @return array
+     * @throws MailchimpException
      */
-    public function update($listId, Subscriber $subscriber)
+    public function update(string $listId, Subscriber $subscriber): array
     {
         $subscriberHash = MailChimp::subscriberHash($subscriber->getEmail());
         $result = $this->mailchimp->patch("lists/$listId/members/$subscriberHash", $subscriber->formatMailChimp());
@@ -166,8 +206,9 @@ class ListRepository
      * @param string $listId
      * @param Subscriber $newSubscriber
      * @param string $oldEmailAddress
+     * @throws MailchimpException
      */
-    public function changeEmailAddress($listId, Subscriber $newSubscriber, $oldEmailAddress)
+    public function changeEmailAddress(string $listId, Subscriber $newSubscriber, string $oldEmailAddress): array
     {
         # @NOTE handle special cases:
         #       1. new email address already exists in List
@@ -180,21 +221,23 @@ class ListRepository
             // problem with the oldSubcriber (doest not exist, ...)
             // np we will take the new Subscriber
             $newMember = $newSubscriber->formatMailChimp();
-            $newMember['status_if_new'] = 'subscribed';
+            $newMember['status_if_new'] = self::STATUS_SUBSCRIBED;
         } else {
             // clean member
-            unset($oldMember['_links']);
-            unset($oldMember['id']);
-            unset($oldMember['stats']);
-            unset($oldMember['unique_email_id']);
-            unset($oldMember['member_rating']);
-            unset($oldMember['last_changed']);
-            unset($oldMember['email_client']);
-            unset($oldMember['list_id']);
+            unset(
+                $oldMember['_links'],
+                $oldMember['id'],
+                $oldMember['stats'],
+                $oldMember['unique_email_id'],
+                $oldMember['member_rating'],
+                $oldMember['last_changed'],
+                $oldMember['email_client'],
+                $oldMember['list_id']
+            );
 
             $newMember = $oldMember;
             $newMember['email_address'] = $newSubscriber->getEmail();
-            $newMember['status_if_new'] = 'subscribed';
+            $newMember['status_if_new'] = self::SUBSCRIBED;
 
             // delete the old Member
             $deleteOld = $this->mailchimp->delete("lists/$listId/members/$subscriberHash");
@@ -217,8 +260,10 @@ class ListRepository
      * Delete a Subscriber to a list
      * @param string $listId
      * @param Subscriber $subscriber
+     * @return array
+     * @throws MailchimpException
      */
-    public function delete($listId, Subscriber $subscriber)
+    public function delete(string $listId, Subscriber $subscriber): array
     {
         $subscriberHash = MailChimp::subscriberHash($subscriber->getEmail());
         $result = $this->mailchimp->delete("lists/$listId/members/$subscriberHash");
@@ -236,7 +281,7 @@ class ListRepository
      * @param array $subscribers
      * @return array $batchIds
      */
-    public function batchSubscribe($listId, array $subscribers)
+    public function batchSubscribe(string $listId, array $subscribers): array
     {
         $batchResults = [];
         // as suggested in MailChimp API docs, we send multiple smaller requests instead of a bigger one
@@ -247,7 +292,34 @@ class ListRepository
                 $subscriberHash = MailChimp::subscriberHash($newsubscribers->getEmail());
                 $Batch->put("op$index", "lists/$listId/members/$subscriberHash", array_merge(
                     $newsubscribers->formatMailChimp(),
-                    ['status' => 'subscribed']
+                    ['status' => self::STATUS_SUBSCRIBED]
+                ));
+            }
+            $Batch->execute();
+            $currentBatch = $Batch->check_status();
+            array_push($batchResults, $currentBatch);
+        }
+        return $batchResults;
+    }
+
+    /**
+     * Pending a batch of Subscriber to a list
+     * @param string $listId
+     * @param array $subscribers
+     * @return array $batchIds
+     */
+    public function batchPending(string $listId, array $subscribers): array
+    {
+        $batchResults = [];
+        // as suggested in MailChimp API docs, we send multiple smaller requests instead of a bigger one
+        $subscriberChunks = array_chunk($subscribers, self::SUBSCRIBER_BATCH_SIZE);
+        foreach ($subscriberChunks as $subscriberChunk) {
+            $Batch = $this->mailchimp->new_batch();
+            foreach ($subscriberChunk as $index => $newsubscribers) {
+                $subscriberHash = MailChimp::subscriberHash($newsubscribers->getEmail());
+                $Batch->put("op$index", "lists/$listId/members/$subscriberHash", array_merge(
+                    $newsubscribers->formatMailChimp(),
+                    ['status' => self::STATUS_PENDING]
                 ));
             }
             $Batch->execute();
@@ -263,7 +335,7 @@ class ListRepository
      * @param array $emails
      * @return array $batchIds
      */
-    public function batchUnsubscribe($listId, array $emails)
+    public function batchUnsubscribe($listId, array $emails): array
     {
         $batchIds = [];
         // as suggested in MailChimp API docs, we send multiple smaller requests instead of a bigger one
@@ -273,7 +345,7 @@ class ListRepository
             foreach ($emailsChunk as $index => $email) {
                 $emailHash = MailChimp::subscriberHash($email);
                 $Batch->patch("op$index", "lists/$listId/members/$emailHash", [
-                    'status' => 'unsubscribed'
+                    'status' => self::STATUS_UNSUBSCRIBED
                 ]);
             }
             $result = $Batch->execute();
@@ -289,7 +361,7 @@ class ListRepository
      * @param array $emails
      * @return array $batchIds
      */
-    public function batchDelete($listId, array $emails)
+    public function batchDelete(string $listId, array $emails): array
     {
         $batchIds = [];
         // as suggested in MailChimp API docs, we send multiple smaller requests instead of a bigger one
@@ -311,8 +383,9 @@ class ListRepository
      * Get Members of a list
      * @param string $listId
      * @return array
+     * @throws MailchimpException
      */
-    public function getMembers($listId)
+    public function getMembers(string $listId): array
     {
         $emails = [];
         $result = $this->mailchimp->get("lists/$listId/members");
@@ -328,8 +401,9 @@ class ListRepository
      * Get an array of subscribers emails from a list
      * @param string $listId
      * @return array
+     * @throws MailchimpException
      */
-    public function getSubscriberEmails($listId)
+    public function getSubscriberEmails(string $listId): array
     {
         $emails = [];
         $members = [];
@@ -354,11 +428,17 @@ class ListRepository
             if (!$this->mailchimp->success()) {
                 $this->throwMailchimpError($this->mailchimp->getLastResponse());
             }
+
+            /*
+            $members += array_map(
+                fn(array $member) => new Subscriber($member['email_address'], $member['merge_fields']),
+                $result['members']
+            );*/
             $members = array_merge($members, $result['members']);
-        };
+        }
 
         foreach ($members as $key => $member) {
-            array_push($emails, $member['email_address']);
+            $emails[] = $member['email_address'];
         }
 
         return $emails;
@@ -369,8 +449,9 @@ class ListRepository
      * http://developer.mailchimp.com/documentation/mailchimp/reference/lists/merge-fields/#
      * @param string $listId
      * @return array
+     * @throws MailchimpException
      */
-    public function getMergeFields($listId)
+    public function getMergeFields(string $listId): array
     {
         $result = $this->mailchimp->get("lists/$listId/merge-fields");
 
@@ -392,8 +473,9 @@ class ListRepository
      * @param string $listId
      * @param array $mergeData ["name" => '', "type" => '']
      * @return array
+     * @throws MailchimpException
      */
-    public function addMergeField($listId, array $mergeData)
+    public function addMergeField($listId, array $mergeData): array
     {
         $result = $this->mailchimp->post("lists/$listId/merge-fields", $mergeData);
 
@@ -411,8 +493,9 @@ class ListRepository
      * @param string $mergeId
      * @param array $mergeData ["name" => '', "type" => '', ...]
      * @return array
+     * @throws MailchimpException
      */
-    public function updateMergeField($listId, $mergeId, $mergeData)
+    public function updateMergeField(string $listId, string $mergeId, array $mergeData): array
     {
         $result = $this->mailchimp->patch("lists/$listId/merge-fields/$mergeId", $mergeData);
 
@@ -429,8 +512,9 @@ class ListRepository
     * @param string $listId
     * @param string $mergeId
     * @return array
+    * @throws MailchimpException
     */
-    public function deleteMergeField($listId, $mergeId)
+    public function deleteMergeField(string $listId, string $mergeId): array
     {
         $result = $this->mailchimp->delete("lists/$listId/merge-fields/$mergeId");
 
@@ -447,7 +531,7 @@ class ListRepository
     * @param string $webhookurl
     * @return array
     */
-    public function registerMainWebhook($listId, $webhookurl)
+    public function registerMainWebhook(string $listId, string $webhookurl): array
     {
         // Configure webhook
         $subscribeWebhook = [
@@ -476,8 +560,9 @@ class ListRepository
     * @param string $listId
     * @param array $webhookData
     * @return array
+    * @throws MailchimpException
     */
-    public function addWebhook($listId, array $webhookData)
+    public function addWebhook(string $listId, array $webhookData): array
     {
         $result = $this->mailchimp->post("lists/$listId/webhooks", $webhookData);
 
@@ -493,8 +578,9 @@ class ListRepository
     * http://developer.mailchimp.com/documentation/mailchimp/reference/lists/webhooks/#
     * @param string $listId
     * @return array
+    * @throws MailchimpException
     */
-    public function getWebhooks($listId)
+    public function getWebhooks(string $listId): array
     {
         $result = $this->mailchimp->get("lists/$listId/webhooks");
 
@@ -511,7 +597,7 @@ class ListRepository
      * @return void
      * @throws MailchimpException [description]
      */
-    private function throwMailchimpError(array $errorResponse)
+    private function throwMailchimpError(array $errorResponse): void
     {
         $errorArray = json_decode($errorResponse['body'], true);
         if (is_array($errorArray) && array_key_exists('errors', $errorArray)) {

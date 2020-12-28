@@ -13,10 +13,10 @@ use DrewM\MailChimp\MailChimp;
  */
 class ListRepositoryTest extends TestCase
 {
-    const MAILCHIMP_API_KEY = '3419ca97412af7c2893b89894275b415-us14';
-    const LIST_ID           = 'ba039c6198';
+    protected const MAILCHIMP_API_KEY = '3419ca97412af7c2893b89894275b415-us14';
+    protected const LIST_ID           = 'ba039c6198';
 
-    protected $listRepository = null;
+    protected ?ListRepository $listRepository = null;
 
     public function setUp()
     {
@@ -30,6 +30,12 @@ class ListRepositoryTest extends TestCase
         //var_dump($list);
         $this->assertNotEmpty($list);
         $this->assertEquals($list['id'], self::LIST_ID);
+    }
+
+    public function testGetListByName()
+    {
+        $list = $this->listRepository->findByName('');
+        $this->assertNotEmpty($list);
     }
 
     public function testSubscribe()

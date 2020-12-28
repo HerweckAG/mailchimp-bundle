@@ -18,7 +18,7 @@ class ConfigListProviderTest extends TestCase
           
         $this->providerFactory           
             ->method('create')
-            ->will($this->returnValue($this->createMock(\Welp\MailchimpBundle\Provider\FosSubscriberProvider::class)))    
+            ->willReturn(self::returnValue($this->createMock(\Welp\MailchimpBundle\Provider\FosSubscriberProvider::class)))
         ;
 
         $this->listConfig = array(
@@ -77,8 +77,8 @@ class ConfigListProviderTest extends TestCase
         $configListProvider = new ConfigListProvider($this->providerFactory, $this->listConfig);      
         $lists = $configListProvider->getLists();
 
-        $this->assertEquals(2, count($lists));
-        $this->assertTrue($lists[0] instanceof SubscriberList);
+        $this->assertCount(2, count($lists));
+        $this->assertInstanceOf(SubscriberList::class, $lists[0]);
         $this->assertEquals("FNAME", $lists[0]->getMergeFields()[0]['tag']);
     }
 
@@ -88,7 +88,7 @@ class ConfigListProviderTest extends TestCase
         $configListProvider = new ConfigListProvider($this->providerFactory, $this->listConfig);      
         $list = $configListProvider->getList("sampleid2");
 
-        $this->assertTrue($list instanceof SubscriberList);
+        $this->assertInstanceOf(SubscriberList::class, $list);
         $this->assertEquals("sampleid2", $list->getListId());
         $this->assertEquals("FNAME2", $list->getMergeFields()[0]['tag']);
         $this->assertEquals("LNAME2", $list->getMergeFields()[01]['tag']);
