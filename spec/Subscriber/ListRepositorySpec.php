@@ -58,31 +58,31 @@ class ListRepositorySpec extends ObjectBehavior
 
     public function it_unsubscribe_a_subscriber(MailChimp $mailchimp, $subscriber)
     {
-        $this->unsubscribe('ba039c6198', $subscriber)->shouldReturn('unsubscribed');
+        $this->unsubscribe('ba039c6198', $subscriber)->shouldReturn(['unsubscribed']);
     }
 
     public function it_pending_a_subscriber(MailChimp $mailchimp, $subscriber)
     {
-        $this->pending('ba039c6198', $subscriber)->shouldReturn('pending');
+        $this->pending('ba039c6198', $subscriber)->shouldReturn(['pending']);
     }
 
     public function it_clean_a_subscriber(MailChimp $mailchimp, $subscriber)
     {
-        $this->clean('ba039c6198', $subscriber)->shouldReturn('cleaned');
+        $this->clean('ba039c6198', $subscriber)->shouldReturn(['cleaned']);
     }
 
     public function it_delete_a_subscriber(MailChimp $mailchimp, $subscriber)
     {
-        $mailchimp->delete("lists/ba039c6198/members/b1a29fd58778c40c7f15f06a334dc691")->willReturn('deleted');
+        $mailchimp->delete("lists/ba039c6198/members/b1a29fd58778c40c7f15f06a334dc691")->willReturn(['deleted']);
 
-        $this->delete('ba039c6198', $subscriber)->shouldReturn('deleted');
+        $this->delete('ba039c6198', $subscriber)->shouldReturn(['deleted']);
     }
 
     public function it_update_a_subscriber(MailChimp $mailchimp, $subscriber)
     {
-        $mailchimp->patch("lists/ba039c6198/members/b1a29fd58778c40c7f15f06a334dc691", ["email_address" => "charles@terrasse.fr", "merge_fields" => ["FNAME" => "Charles", "LNAME" => "Terrasse"], "language" => "fr", "email_type" => "html"])->willReturn('update');
+        $mailchimp->patch("lists/ba039c6198/members/b1a29fd58778c40c7f15f06a334dc691", ["email_address" => "charles@terrasse.fr", "merge_fields" => ["FNAME" => "Charles", "LNAME" => "Terrasse"], "language" => "fr", "email_type" => "html"])->willReturn(['update']);
 
-        $this->update('ba039c6198', $subscriber)->shouldReturn('update');
+        $this->update('ba039c6198', $subscriber)->shouldReturn(['update']);
     }
 
     public function it_finds_merge_tags(MailChimp $mailchimp)
@@ -158,7 +158,7 @@ class ListRepositorySpec extends ObjectBehavior
 
     public function it_deletes_a_merge_tag(MailChimp $mailchimp)
     {
-        $mailchimp->delete("lists/123/merge-fields/foo")->shouldBeCalled();
+        $mailchimp->delete("lists/123/merge-fields/foo")->shouldBeCalled()->willReturn([]);
 
         $this->deleteMergeField(123, 'foo');
     }
@@ -169,7 +169,7 @@ class ListRepositorySpec extends ObjectBehavior
             'tag' => 'FOO',
             'name' => 'Foo bar',
             'options' => ['req' => true]
-        ])->shouldBeCalled();
+        ])->shouldBeCalled()->willReturn([]);
 
         $this->addMergeField(123, $mergeData);
     }
@@ -180,7 +180,7 @@ class ListRepositorySpec extends ObjectBehavior
             'tag' => 'FOO',
             'name' => 'Foo bar',
             'options' => ['req' => true]
-        ])->shouldBeCalled();
+        ])->shouldBeCalled()->willReturn([]);
 
         $this->updateMergeField(123, 2, $mergeData);
     }
@@ -221,7 +221,7 @@ class ListRepositorySpec extends ObjectBehavior
                 'language' => 'fr',
                 'email_type'    => 'html',
                 'status'  => 'unsubscribed'
-            ])->willReturn('unsubscribed');
+            ])->willReturn(['unsubscribed']);
 
         $mailchimp->put("lists/ba039c6198/members/b1a29fd58778c40c7f15f06a334dc691", [
                 'email_address' => 'charles@terrasse.fr',
@@ -229,7 +229,7 @@ class ListRepositorySpec extends ObjectBehavior
                 'language' => 'fr',
                 'email_type'    => 'html',
                 'status'  => 'pending'
-            ])->willReturn('pending');
+            ])->willReturn(['pending']);
 
         $mailchimp->put("lists/ba039c6198/members/b1a29fd58778c40c7f15f06a334dc691", [
                 'email_address' => 'charles@terrasse.fr',
@@ -237,7 +237,7 @@ class ListRepositorySpec extends ObjectBehavior
                 'language' => 'fr',
                 'email_type'    => 'html',
                 'status'  => 'cleaned'
-            ])->willReturn('cleaned');
+            ])->willReturn(['cleaned']);
     }
 
     protected function getSubscriberChunk($count, $offset)
