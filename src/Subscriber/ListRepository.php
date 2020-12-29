@@ -90,6 +90,21 @@ class ListRepository
     }
 
     /**
+     * @return array
+     * @throws MailchimpException
+     */
+    public function findAll(): array
+    {
+       $lists = $this->mailchimp->get('lists/');
+
+        if (!$this->mailchimp->success()) {
+            $this->throwMailchimpError($this->mailchimp->getLastResponse());
+        }
+
+       return $lists['lists'];
+    }
+
+    /**
      * core function to put (add or edit) subscriber to a list
      * @param string $listId
      * @param Subscriber $subscriber
